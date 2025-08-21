@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Time Logger</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Developer Time Logger</h1>
+    </header>
+
+    <!-- Add Task Section -->
+    <section class="add-task-section">
+      <h2>Add Time Log</h2>
+      <form id="addTaskForm">
+        <div class="form-group">
+          <label for="taskDate">Date:</label>
+          <input type="date" id="taskDate" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="taskName">Task Name:</label>
+          <select id="taskName" required>
+            <option value="">Select a task...</option>
+            <option value="Bug Fixing">Bug Fixing</option>
+            <option value="Code Review">Code Review</option>
+            <option value="Development">Development</option>
+            <option value="Meeting">Meeting</option>
+            <option value="Documentation">Documentation</option>
+          </select>
+        </div>
+        
+        <div class="time-inputs">
+          <div class="form-group">
+            <label for="hours">Hours:</label>
+            <input type="number" id="hours" min="0" max="23" value="0" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="minutes">Minutes:</label>
+            <input type="number" id="minutes" min="0" max="59" value="0" required>
+          </div>
+        </div>
+        
+        <button type="submit" class="add-btn">Add Task</button>
+      </form>
+    </section>
+
+    <!-- View Logs Section -->
+    <section class="view-logs-section">
+      <h2>View Logs</h2>
+      <div class="form-group">
+        <label for="filterDate">Filter by Date:</label>
+        <input type="date" id="filterDate">
+      </div>
+      
+      <div id="taskList" class="task-list">
+        <p class="no-tasks">Select a date to view tasks</p>
+      </div>
+      
+      <div id="dailyTotal" class="daily-total">
+        <strong>Total Time Spent - 0h 0m</strong>
+      </div>
+    </section>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
