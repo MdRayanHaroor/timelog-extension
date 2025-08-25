@@ -4,20 +4,19 @@
   "version": "1.0",
   "description": "Log and track time spent on development tasks",
   "permissions": ["storage"],
+  "host_permissions": ["https://dev.azure.com/*"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Developer Time Logger",
     "default_icon": {
-      "16": "icon.png",
-      "32": "icon.png",
-      "48": "icon.png",
-      "128": "icon.png"
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
     }
   },
   "icons": {
-    "16": "icon.png",
-    "32": "icon.png",
-    "48": "icon.png",
-    "128": "icon.png"
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
   }
 }
