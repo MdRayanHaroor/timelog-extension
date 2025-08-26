@@ -1,10 +1,10 @@
 const CONFIG = {
   MICROSOFT_GRAPH: {
-    AUTH_URL: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-    ACCESS_TOKEN_URL: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-    CLIENT_ID: "your_actual_client_id_from_azure",
-    CLIENT_SECRET: "your_actual_client_secret_from_azure",
-    SCOPE: "https://graph.microsoft.com/Files.ReadWrite offline_access",
+    AUTH_URL: "https://login.microsoftonline.com/86fb359e-1360-4ab3-b90d-2a68e8c007b9/oauth2/v2.0/authorize",
+    ACCESS_TOKEN_URL: "https://login.microsoftonline.com/86fb359e-1360-4ab3-b90d-2a68e8c007b9/oauth2/v2.0/token",
+    CLIENT_ID: "d18c065c-119d-42df-b7ee-7e957e1e4337",
+    //CLIENT_SECRET: "your_actual_client_secret_from_azure",
+    SCOPE: "https://graph.microsoft.com/.default offline_access",
     REDIRECT_URI: window.chrome.identity.getRedirectURL(),
   },
   ONEDRIVE: {
