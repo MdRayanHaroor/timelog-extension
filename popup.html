@@ -16,47 +16,36 @@
       <details>
         <summary id="settingsSummary">Settings</summary>
         <div class="settings-content">
-          <div class="form-group">
-            <label for="organization">Organization:</label>
-            <input type="text" id="organization" placeholder="Enter your organization name">
-          </div>
-          
-          <div class="form-group">
-            <label for="pat">Personal Access Token:</label>
-            <div class="pat-input-group">
-              <input type="password" id="pat" placeholder="Enter your PAT">
-              <button type="button" id="togglePat" class="toggle-btn">👁</button>
+          <div id="orgPatListContainer">
+            <h3>Saved Organizations</h3>
+            <div id="orgPatList">
+              <p class="no-orgs-message">No organizations saved.</p>
             </div>
           </div>
-          
-          <div class="form-group">
-            <label for="expiryDate">Expiry Date:</label>
-            <input type="date" id="expiryDate">
-          </div>
-          
-          <div class="pat-help">
-            <p><strong>How to get PAT:</strong></p>
-            <ol>
-                <li>Go to Azure DevOps → User settings → Personal access tokens.</li>
-                <li>Create a new token.</li>
-                <li>Under "Scopes", select <strong>Custom defined</strong>.</li>
-                <li>Click <strong>Show all scopes</strong>.</li>
-                <li>Enable the following **Read** permissions:</li>
-                <ul>
-                    <li><strong>Project and Team</strong>: Read</li>
-                    <li><strong>Work Items</strong>: Read</li>
-                </ul>
-                <li>Click Create, and copy the token.</li>
-            </ol>
-          </div>
-          
+
+          <form id="addOrgForm">
+            <h3>Add New Organization</h3>
+            <div class="form-group">
+              <label for="newOrganization">Organization Name:</label>
+              <input type="text" id="newOrganization" placeholder="e.g., MyCompany" required>
+            </div>
+            <div class="form-group">
+              <label for="newPat">Personal Access Token:</label>
+              <div class="pat-input-group">
+                <input type="password" id="newPat" placeholder="Enter PAT for this org" required>
+                <button type="button" id="toggleNewPat" class="toggle-btn">👁</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="newExpiryDate">Expiry Date:</label>
+              <input type="date" id="newExpiryDate" required>
+            </div>
+            <button type="submit" class="save-btn">Add Organization</button>
+          </form>
+
           <div class="settings-buttons">
-            <button type="button" id="savePat" class="save-btn">Save</button>
-            <button type="button" id="replacePat" class="replace-btn" style="display: none;">Replace PAT</button>
-            <button type="button" id="clearPat" class="clear-btn">Clear</button>
+            <button type="button" id="clearAllSettingsBtn" class="clear-btn">Clear All Settings</button>
           </div>
-          
-          <div id="patStatus" class="pat-status"></div>
         </div>
       </details>
     </section>
@@ -67,8 +56,10 @@
       </h2>
       <form id="addTaskForm">
         <div class="form-group">
-          <label for="organizationInput">Organization:</label>
-          <input type="text" id="organizationInput" placeholder="Enter organization name" required>
+          <label for="organizationSelect">Organization:</label>
+          <select id="organizationSelect" required>
+            <option value="">Select organization...</option>
+          </select>
         </div>
         
         <div class="form-group" id="projectSelectorGroup">
@@ -83,10 +74,8 @@
           <label for="workItemSelector">Work Item:</label>
           <select id="workItemSelector" required>
             <option value="">Select work item...</option>
-            <optgroup label="My Work Items" id="addTaskWorkItemsGroup">
-            </optgroup>
-            <optgroup label="My Backlog" id="addTaskBacklogGroup">
-            </optgroup>
+            <optgroup label="My Work Items" id="addTaskWorkItemsGroup"></optgroup>
+            <optgroup label="My Backlog" id="addTaskBacklogGroup"></optgroup>
           </select>
           <div id="workItemLoading" class="loading-indicator" style="display: none;">Loading work items...</div>
           <div id="workItemError" class="error-message" style="display: none;"></div>
@@ -107,7 +96,6 @@
             <label for="hours">Hours:</label>
             <input type="number" id="hours" min="0" max="23" value="0" required>
           </div>
-          
           <div class="form-group">
             <label for="minutes">Minutes:</label>
             <input type="number" id="minutes" min="0" max="59" value="0" required>
@@ -144,10 +132,8 @@
         <label for="viewWorkItemSelector">Work Item:</label>
         <select id="viewWorkItemSelector">
           <option value="">All work items</option>
-          <optgroup label="My Work Items" id="viewWorkItemsGroup">
-          </optgroup>
-          <optgroup label="My Backlog" id="viewBacklogGroup">
-          </optgroup>
+          <optgroup label="My Work Items" id="viewWorkItemsGroup"></optgroup>
+          <optgroup label="My Backlog" id="viewBacklogGroup"></optgroup>
         </select>
         <div id="viewWorkItemLoading" class="loading-indicator" style="display: none;">Loading work items...</div>
         <div id="viewWorkItemError" class="error-message" style="display: none;"></div>

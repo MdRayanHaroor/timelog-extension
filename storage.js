@@ -2,7 +2,7 @@
 
 async function getADOSettings() {
   const result = await chrome.storage.local.get(["adoSettings"]);
-  return result.adoSettings || {};
+  return result.adoSettings || []; // Default to an empty array
 }
 
 async function saveADOSettings(settings) {
