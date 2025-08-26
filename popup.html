@@ -14,10 +14,8 @@
 
     <section class="settings-section">
       <details>
-        <!-- Updated summary to show PAT expiry info -->
         <summary id="settingsSummary">Settings</summary>
         <div class="settings-content">
-          <!-- Added back organization field to settings -->
           <div class="form-group">
             <label for="organization">Organization:</label>
             <input type="text" id="organization" placeholder="Enter your organization name">
@@ -36,10 +34,20 @@
             <input type="date" id="expiryDate">
           </div>
           
-          <!-- Added help text for getting PAT -->
           <div class="pat-help">
             <p><strong>How to get PAT:</strong></p>
-            <p>Go to Azure DevOps dashboard → User settings → Personal access tokens → Create new token → name and set expiry date → remember the expiry date → copy the one time reveal PAT to be pasted</p>
+            <ol>
+                <li>Go to Azure DevOps → User settings → Personal access tokens.</li>
+                <li>Create a new token.</li>
+                <li>Under "Scopes", select <strong>Custom defined</strong>.</li>
+                <li>Click <strong>Show all scopes</strong>.</li>
+                <li>Enable the following **Read** permissions:</li>
+                <ul>
+                    <li><strong>Project and Team</strong>: Read</li>
+                    <li><strong>Work Items</strong>: Read</li>
+                </ul>
+                <li>Click Create, and copy the token.</li>
+            </ol>
           </div>
           
           <div class="settings-buttons">
@@ -53,11 +61,11 @@
       </details>
     </section>
 
-    <!-- Add Task Section -->
     <section class="add-task-section">
-      <h2>Add Time Log</h2>
+      <h2>Add Time Log
+        <button type="button" id="retryButton" class="retry-btn" title="Detect current Azure DevOps work item">🔄</button>
+      </h2>
       <form id="addTaskForm">
-        <!-- Changed organization from dropdown to input box that auto-populates from settings -->
         <div class="form-group">
           <label for="organizationInput">Organization:</label>
           <input type="text" id="organizationInput" placeholder="Enter organization name" required>
@@ -76,10 +84,8 @@
           <select id="workItemSelector" required>
             <option value="">Select work item...</option>
             <optgroup label="My Work Items" id="addTaskWorkItemsGroup">
-              <!-- Work items will be populated here -->
             </optgroup>
             <optgroup label="My Backlog" id="addTaskBacklogGroup">
-              <!-- Backlog items will be populated here -->
             </optgroup>
           </select>
           <div id="workItemLoading" class="loading-indicator" style="display: none;">Loading work items...</div>
@@ -107,7 +113,6 @@
       </form>
     </section>
 
-    <!-- View Logs Section -->
     <section class="view-logs-section">
       <h2>View Logs</h2>
       <div class="form-group">
@@ -115,7 +120,6 @@
         <input type="date" id="filterDate">
       </div>
       
-      <!-- Updated view section with cascading dropdowns for filtering -->
       <div class="form-group">
         <label for="viewOrgSelector">Organization:</label>
         <select id="viewOrgSelector">
@@ -136,10 +140,8 @@
         <select id="viewWorkItemSelector">
           <option value="">All work items</option>
           <optgroup label="My Work Items" id="viewWorkItemsGroup">
-            <!-- Work items will be populated here -->
           </optgroup>
           <optgroup label="My Backlog" id="viewBacklogGroup">
-            <!-- Backlog items will be populated here -->
           </optgroup>
         </select>
         <div id="viewWorkItemLoading" class="loading-indicator" style="display: none;">Loading work items...</div>
@@ -156,6 +158,9 @@
     </section>
   </div>
 
+  <script src="storage.js"></script>
+  <script src="api.js"></script>
+  <script src="ui.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
