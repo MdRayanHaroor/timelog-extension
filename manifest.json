@@ -3,7 +3,7 @@
   "name": "Developer Time Logger",
   "version": "1.0",
   "description": "Log and track time spent on development tasks",
-  "permissions": ["storage", "activeTab", "tabs"],
+  "permissions": ["storage", "activeTab", "tabs", "identity"],
   "host_permissions": [
     "https://dev.azure.com/*",
     "https://graph.microsoft.com/*",
