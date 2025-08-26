@@ -34,6 +34,9 @@ h2 {
   font-weight: 500;
   margin-bottom: 12px;
   color: #34495e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .add-task-section {
@@ -294,4 +297,25 @@ select:focus {
   color: #666;
   font-style: italic;
   margin-top: 4px;
+}
+
+/* Added styles for the retry button */
+.retry-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-left: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  vertical-align: middle;
+}
+
+.retry-btn:hover {
+  background-color: #f0f0f0;
+}
+
+.retry-btn:active {
+  transform: scale(0.95);
 }
