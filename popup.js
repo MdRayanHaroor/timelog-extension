@@ -1,29 +1,23 @@
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("[v0] Popup DOM loaded, initializing...");
 
-  // Set default dates to today
   const today = new Date().toISOString().split("T")[0];
+  
+  document.getElementById("taskDate").setAttribute('max', today);
+  document.getElementById("filterDate").setAttribute('max', today);
+
   document.getElementById("taskDate").value = today;
   document.getElementById("filterDate").value = today;
 
-  // Load tasks for today by default
   await loadTasksForDate(today);
-
   await initializeAzureDevOpsSettings();
 
-  // Add task form submission
   document.getElementById("addTaskForm").addEventListener("submit", (e) => {
     e.preventDefault();
     addTask();
   });
 
-  // Event listeners for filters
-  document.getElementById("filterDate").addEventListener("change", (e) => {
-    const selectedDate = e.target.value;
-    if (selectedDate) {
-      loadTasksForDate(selectedDate);
-    }
-  });
+  document.getElementById("filterDate").addEventListener("change", (e) => loadTasksForDate(e.target.value));
   document.getElementById("viewOrgSelector").addEventListener("change", (e) => {
     const org = e.target.value;
     showViewProjectSelector(!!org);
@@ -38,118 +32,71 @@ document.addEventListener("DOMContentLoaded", async () => {
     applyFilters();
   });
   document.getElementById("viewWorkItemSelector").addEventListener("change", applyFilters);
-
-
-  // Event listeners for add task dropdowns
-    document.getElementById("organizationInput").addEventListener("input", (e) => {
-        const org = e.target.value.trim();
-        showProjectSelector(!!org);
-        if(org) loadProjectsForAddTask(org);
-    });
-
-    document.getElementById("projectSelector").addEventListener("change", (e) => {
-        const projectId = e.target.value;
-        const org = document.getElementById("organizationInput").value.trim();
-        showWorkItemSelector(!!projectId && !!org);
-        if(projectId && org) loadWorkItemsForAddTask(org, projectId);
-    });
-
-  // Retry button to manually fetch current page details
-  document.getElementById("retryButton").addEventListener("click", async () => {
-    console.log("[v0] Retry button clicked - manually detecting work item");
-
-    try {
-      const retryBtn = document.getElementById("retryButton");
-      retryBtn.innerHTML = "⏳";
-      retryBtn.disabled = true;
-
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!tab || !tab.url) {
-        showMessage("Could not access current tab", "error");
-        return;
-      }
-
-      const workItemMatch = tab.url.match(/https:\/\/dev\.azure\.com\/([^/]+)\/([^/]+)\/_workitems\/edit\/(\d+)/);
-
-      if (!workItemMatch) {
-        showMessage("Not on an Azure DevOps work item page", "error");
-        return;
-      }
-
-      const [, organization, project, workItemId] = workItemMatch;
-      const workItemData = {
-        organization: decodeURIComponent(organization),
-        project: decodeURIComponent(project),
-        id: Number.parseInt(workItemId),
-      };
-
-      await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage(
-          {
-            type: "WORK_ITEM_DETECTED",
-            workItem: workItemData,
-          },
-          (response) => {
-            if (chrome.runtime.lastError) {
-              reject(chrome.runtime.lastError);
-            } else {
-              resolve(response);
-            }
-          }
-        );
-      });
-
-      showMessage("Work item detected! Attempting to pre-select...", "success");
-      await checkAndPreSelectWorkItem();
-    } catch (error) {
-      console.error("[v0] Error in retry button:", error);
-      showMessage("Error detecting work item: " + error.message, "error");
-    } finally {
-      const retryBtn = document.getElementById("retryButton");
-      retryBtn.innerHTML = "🔄";
-      retryBtn.disabled = false;
-    }
+  document.getElementById("taskList").addEventListener("click", handleTaskListActions);
+  document.getElementById("organizationInput").addEventListener("input", (e) => {
+    const org = e.target.value.trim();
+    showProjectSelector(!!org);
+    if(org) loadProjectsForAddTask(org);
   });
+  document.getElementById("projectSelector").addEventListener("change", (e) => {
+    const projectId = e.target.value;
+    const org = document.getElementById("organizationInput").value.trim();
+    showWorkItemSelector(!!projectId && !!org);
+    if(projectId && org) loadWorkItemsForAddTask(org, projectId);
+  });
+  document.getElementById("retryButton").addEventListener("click", handleRetryClick);
 
   await checkAndPreSelectWorkItem();
 });
 
 async function addTask() {
   const date = document.getElementById("taskDate").value;
+  const description = document.getElementById("taskDescription").value.trim();
+  const hours = Number.parseInt(document.getElementById("hours").value) || 0;
+  const minutes = Number.parseInt(document.getElementById("minutes").value) || 0;
+  
   const orgInput = document.getElementById("organizationInput");
   const projectSelector = document.getElementById("projectSelector");
   const workItemSelector = document.getElementById("workItemSelector");
-  const selectedOrg = orgInput.value.trim();
-  const selectedProject = projectSelector.value;
-  const selectedWorkItem = workItemSelector.value;
-  const selectedWorkItemText = workItemSelector.options[workItemSelector.selectedIndex].text;
-  const hours = Number.parseInt(document.getElementById("hours").value) || 0;
-  const minutes = Number.parseInt(document.getElementById("minutes").value) || 0;
 
-  if (!date || !selectedOrg || !selectedProject || !selectedWorkItem || (hours === 0 && minutes === 0)) {
+  if (!date || !orgInput.value.trim() || !projectSelector.value || !workItemSelector.value || (hours === 0 && minutes === 0)) {
     showMessage("Please fill in all required fields and enter a time.", "error");
     return;
   }
 
-  let workItemInfo = {};
-  if (selectedWorkItem.startsWith("wi:") || selectedWorkItem.startsWith("backlog:")) {
-    const workItemId = selectedWorkItem.split(":")[1];
-    const [title, type] = selectedWorkItemText.split(" - ");
-    workItemInfo = {
-      id: workItemId,
-      title: title,
-      type: type,
-      organization: selectedOrg,
-      project: projectSelector.options[projectSelector.selectedIndex].text,
-      projectId: selectedProject,
-    };
-  }
-
   try {
     const existingTasks = await getTasksForDate(date);
+    const loggedMinutes = existingTasks.reduce((total, task) => total + (task.hours * 60) + task.minutes, 0);
+    const newMinutes = (hours * 60) + minutes;
+    const totalMinutesLimit = 8 * 60;
+
+    if (loggedMinutes + newMinutes > totalMinutesLimit) {
+      const remainingMinutes = totalMinutesLimit - loggedMinutes;
+      const remainingHours = Math.floor(remainingMinutes / 60);
+      const remainingMins = remainingMinutes % 60;
+      showMessage(remainingMinutes <= 0 ? "You have already logged 8 hours for this day." : `Exceeds 8-hour limit. You can only log ${remainingHours}h ${remainingMins}m more.`, "error");
+      return;
+    }
+
+    const selectedWorkItem = workItemSelector.value;
+    const selectedWorkItemText = workItemSelector.options[workItemSelector.selectedIndex].text;
+    let workItemInfo = {};
+    if (selectedWorkItem.startsWith("wi:") || selectedWorkItem.startsWith("backlog:")) {
+      const workItemId = selectedWorkItem.split(":")[1];
+      const [title, type] = selectedWorkItemText.split(" - ");
+      workItemInfo = {
+        id: workItemId,
+        title: title,
+        type: type,
+        organization: orgInput.value.trim(),
+        project: projectSelector.options[projectSelector.selectedIndex].text,
+        projectId: projectSelector.value,
+      };
+    }
+
     const newTask = {
       task: workItemInfo.title || selectedWorkItemText,
+      description: description,
       workItem: workItemInfo,
       hours: hours,
       minutes: minutes,
@@ -160,6 +107,7 @@ async function addTask() {
 
     document.getElementById("hours").value = "0";
     document.getElementById("minutes").value = "0";
+    document.getElementById("taskDescription").value = "";
     document.getElementById("workItemSelector").value = "";
 
     showMessage("Time log added successfully!", "success");
@@ -173,10 +121,119 @@ async function addTask() {
   }
 }
 
+function displayTasks(tasks, date) {
+  const taskList = document.getElementById("taskList");
+  const today = new Date().toISOString().split("T")[0];
+  const isToday = date === today;
+
+  if (tasks.length === 0) {
+    taskList.innerHTML = '<p class="no-tasks">No tasks logged for this date</p>';
+    return;
+  }
+
+  taskList.innerHTML = tasks.map((task) => {
+    const timeString = formatTime(task.hours, task.minutes);
+    const orgInfo = task.workItem?.organization ? `${task.workItem.organization} - ` : "";
+    const projectInfo = task.workItem?.project ? `${task.workItem.project} - ` : "";
+    const workItemType = task.workItem?.type ? `[${task.workItem.type}] ` : "";
+    const descriptionHTML = task.description ? `<div class="task-description">${task.description}</div>` : "";
+
+    const actionButtons = isToday
+      ? `<div class="task-actions">
+           <button class="edit-btn" data-timestamp="${task.timestamp}" title="Edit">✏️</button>
+           <button class="delete-btn" data-timestamp="${task.timestamp}" title="Delete">🗑️</button>
+         </div>`
+      : "";
+
+    return `<div class="task-item" data-timestamp="${task.timestamp}">
+              <div class="task-content">
+                <div class="task-main-info">
+                  <div class="task-details">${orgInfo}${projectInfo}${workItemType}${task.task}</div>
+                  <div class="task-time" data-hours="${task.hours}" data-minutes="${task.minutes}">${timeString}</div>
+                </div>
+                ${descriptionHTML}
+              </div>
+              ${actionButtons}
+            </div>`;
+  }).join("");
+}
+
+function handleEditTask(editButton) {
+    const taskItem = editButton.closest('.task-item');
+    taskItem.classList.add('edit-mode');
+    
+    const taskContent = taskItem.querySelector('.task-content');
+    const { hours, minutes } = taskItem.querySelector('.task-time').dataset;
+    const description = taskItem.querySelector('.task-description')?.textContent || '';
+    
+    const taskDetailsHTML = taskContent.querySelector('.task-main-info .task-details').innerHTML;
+
+    taskContent.innerHTML = `
+        <div class="task-details">${taskDetailsHTML}</div>
+        <div class="edit-inputs">
+            <span>
+                <input type="number" class="edit-hours" value="${hours}" min="0" max="23">h
+                <input type="number" class="edit-minutes" value="${minutes}" min="0" max="59">m
+            </span>
+        </div>
+        <div class="edit-description">
+            <textarea class="edit-desc-textarea" rows="2" placeholder="Edit description...">${description}</textarea>
+        </div>
+    `;
+
+    const taskActions = taskItem.querySelector('.task-actions');
+    taskActions.innerHTML = `
+        <button class="save-edit-btn" data-timestamp="${taskItem.dataset.timestamp}" title="Save">💾</button>
+        <button class="cancel-edit-btn" title="Cancel">❌</button>
+    `;
+}
+
+async function handleSaveEdit(saveButton) {
+    const date = document.getElementById("filterDate").value;
+    const taskItem = saveButton.closest('.task-item');
+    const timestampToEdit = taskItem.dataset.timestamp;
+
+    const newHours = parseInt(taskItem.querySelector('.edit-hours').value, 10) || 0;
+    const newMinutes = parseInt(taskItem.querySelector('.edit-minutes').value, 10) || 0;
+    const newDescription = taskItem.querySelector('.edit-desc-textarea').value.trim();
+
+    if ((newHours === 0 && newMinutes === 0)) {
+        showMessage("Time cannot be zero.", "error");
+        return;
+    }
+
+    try {
+        const tasks = await getTasksForDate(date);
+        const otherTasks = tasks.filter(t => t.timestamp !== timestampToEdit);
+        const loggedMinutes = otherTasks.reduce((total, task) => total + (task.hours * 60) + task.minutes, 0);
+        
+        const newEntryMinutes = (newHours * 60) + newMinutes;
+        const totalMinutesLimit = 8 * 60;
+
+        if (loggedMinutes + newEntryMinutes > totalMinutesLimit) {
+            showMessage("Editing this entry exceeds the 8-hour daily limit.", "error");
+            return;
+        }
+
+        const taskToUpdate = tasks.find(t => t.timestamp === timestampToEdit);
+        taskToUpdate.hours = newHours;
+        taskToUpdate.minutes = newMinutes;
+        taskToUpdate.description = newDescription;
+
+        await saveTasksForDate(date, tasks);
+        await loadTasksForDate(date);
+        showMessage("Time log updated.", "success");
+    } catch (error) {
+        showMessage("Error saving log.", "error");
+    }
+}
+
+// All other functions remain the same. The full code is included below for completeness.
 async function loadTasksForDate(date) {
+    if (!date) return;
   try {
     const tasks = await getTasksForDate(date);
-    applyFiltersToTasks(tasks);
+    applyFiltersToTasks(tasks, date);
   } catch (error) {
     console.error("Error loading tasks:", error);
     showMessage("Error loading tasks.", "error");
@@ -187,12 +244,11 @@ async function applyFilters() {
     const filterDate = document.getElementById("filterDate").value;
     if (filterDate) {
         const tasks = await getTasksForDate(filterDate);
-        applyFiltersToTasks(tasks);
+        applyFiltersToTasks(tasks, filterDate);
     }
 }
 
-
-function applyFiltersToTasks(tasks) {
+function applyFiltersToTasks(tasks, date) {
   const selectedOrg = document.getElementById("viewOrgSelector").value;
   const selectedProject = document.getElementById("viewProjectSelector").value;
   const selectedWorkItem = document.getElementById("viewWorkItemSelector").value;
@@ -212,16 +268,81 @@ function applyFiltersToTasks(tasks) {
     filteredTasks = filteredTasks.filter((task) => task.workItem?.id == workItemId);
   }
 
-  displayTasks(filteredTasks);
+  displayTasks(filteredTasks, date);
   displayDailyTotal(filteredTasks);
 }
 
-// Settings functions
+async function handleRetryClick() {
+    console.log("[v0] Retry button clicked - manually detecting work item");
+    const retryBtn = document.getElementById("retryButton");
+    try {
+        retryBtn.innerHTML = "⏳";
+        retryBtn.disabled = true;
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.url) {
+            showMessage("Could not access current tab", "error");
+            return;
+        }
+        const workItemMatch = tab.url.match(/https:\/\/dev\.azure\.com\/([^/]+)\/([^/]+)\/_workitems\/edit\/(\d+)/);
+        if (!workItemMatch) {
+            showMessage("Not on an Azure DevOps work item page", "error");
+            return;
+        }
+        const [, organization, project, workItemId] = workItemMatch;
+        const workItemData = {
+            organization: decodeURIComponent(organization),
+            project: decodeURIComponent(project),
+            id: Number.parseInt(workItemId),
+        };
+        await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage({ type: "WORK_ITEM_DETECTED", workItem: workItemData },
+                (response) => chrome.runtime.lastError ? reject(chrome.runtime.lastError) : resolve(response)
+            );
+        });
+        showMessage("Work item detected! Attempting to pre-select...", "success");
+        await checkAndPreSelectWorkItem();
+    } catch (error) {
+        console.error("[v0] Error in retry button:", error);
+        showMessage("Error detecting work item: " + error.message, "error");
+    } finally {
+        retryBtn.innerHTML = "🔄";
+        retryBtn.disabled = false;
+    }
+}
+
+function handleTaskListActions(e) {
+    const target = e.target.closest('button');
+    if (!target) return;
+    const timestamp = target.dataset.timestamp;
+    if (target.classList.contains("delete-btn")) handleDeleteTask(timestamp);
+    else if (target.classList.contains("edit-btn")) handleEditTask(target);
+    else if (target.classList.contains("save-edit-btn")) handleSaveEdit(target);
+    else if (target.classList.contains("cancel-edit-btn")) handleCancelEdit();
+}
+
+async function handleDeleteTask(timestamp) {
+    const date = document.getElementById("filterDate").value;
+    if (!date || !confirm("Are you sure you want to delete this time log?")) return;
+    try {
+        let tasks = await getTasksForDate(date);
+        tasks = tasks.filter(task => task.timestamp !== timestamp);
+        await saveTasksForDate(date, tasks);
+        await loadTasksForDate(date);
+        showMessage("Time log deleted.", "success");
+    } catch (error) {
+        showMessage("Error deleting log.", "error");
+    }
+}
+
+async function handleCancelEdit() {
+    await loadTasksForDate(document.getElementById("filterDate").value);
+}
+
 async function initializeAzureDevOpsSettings() {
   const settings = await getADOSettings();
-
   if (settings.pat && settings.expiresAt) {
     const expiryDate = new Date(settings.expiresAt);
+    document.getElementById("expiryDate").value = expiryDate.toISOString().split("T")[0];
     if (expiryDate > new Date()) {
       showPATStatus(true, expiryDate);
       updateSettingsSummary(expiryDate);
@@ -233,9 +354,7 @@ async function initializeAzureDevOpsSettings() {
       showPATStatus(false, expiryDate);
       updateSettingsSummary(expiryDate);
     }
-    document.getElementById("expiryDate").value = expiryDate.toISOString().split("T")[0];
   }
-
   document.getElementById("togglePat").addEventListener("click", togglePATVisibility);
   document.getElementById("savePat").addEventListener("click", savePATSettings);
   document.getElementById("replacePat").addEventListener("click", enablePATInputs);
@@ -264,7 +383,6 @@ async function autoPopulateOrganization() {
 async function loadOrganizations() {
   const settings = await getADOSettings();
   if (!settings.pat) return;
-
   showLoading("orgLoading", true);
   try {
     const data = await fetchOrganizations(settings.pat);
@@ -278,11 +396,10 @@ async function loadOrganizations() {
 }
 
 function populateOrganizationDropdowns(organizations) {
-  ["organizationSelector", "viewOrgSelector"].forEach((selectorId) => {
+  ["viewOrgSelector"].forEach((selectorId) => {
     const selector = document.getElementById(selectorId);
-    selector.innerHTML = selectorId === "viewOrgSelector"
-      ? '<option value="">All organizations</option>'
-      : '<option value="">Select organization...</option>';
+    if (!selector) return;
+    selector.innerHTML = '<option value="">All organizations</option>';
     organizations.forEach((org) => {
       const option = document.createElement("option");
       option.value = org.accountName;
@@ -296,14 +413,11 @@ async function savePATSettings() {
   const pat = document.getElementById("pat").value.trim();
   const expiryDate = document.getElementById("expiryDate").value;
   const organization = document.getElementById("organization").value.trim();
-
   if (!pat || !expiryDate) {
     showMessage("Please fill in all fields", "error");
     return;
   }
-
   const settings = { pat, expiresAt: new Date(expiryDate).toISOString(), organization };
-
   try {
     await saveADOSettings(settings);
     showPATStatus(true, new Date(expiryDate));
@@ -355,7 +469,6 @@ async function clearPATSettings() {
 async function loadProjectsForAddTask(org) {
     const settings = await getADOSettings();
     if (!settings.pat) return;
-
     showLoading("projectLoading", true);
     try {
         const data = await fetchProjects(settings.pat, org);
@@ -371,17 +484,14 @@ async function loadProjectsForAddTask(org) {
 async function loadWorkItemsForAddTask(org, projectId) {
   const settings = await getADOSettings();
   if (!settings.pat) return;
-
   showLoading("workItemLoading", true);
   try {
     const workItemsQuery = "SELECT [System.Id], [System.WorkItemType] FROM WorkItems WHERE [System.AssignedTo] = @Me ORDER BY [System.ChangedDate] DESC";
     const backlogQuery = `SELECT [System.Id], [System.WorkItemType] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item','User Story','Feature') AND [System.State] <> 'Done' AND [System.AssignedTo] = @Me ORDER BY [System.ChangedDate] DESC`;
-
     const [workItemsData, backlogData] = await Promise.all([
       fetchWorkItems(settings.pat, org, projectId, workItemsQuery),
       fetchWorkItems(settings.pat, org, projectId, backlogQuery),
     ]);
-
     populateWorkItemsForAddTask(workItemsData.value);
     populateBacklogItemsForAddTask(backlogData.value);
   } catch (error) {
@@ -395,7 +505,6 @@ async function loadWorkItemsForAddTask(org, projectId) {
 async function loadProjectsForView(org) {
   const settings = await getADOSettings();
   if (!settings.pat) return;
-
   showLoading("viewProjectLoading", true);
   try {
     const data = await fetchProjects(settings.pat, org);
@@ -411,17 +520,14 @@ async function loadProjectsForView(org) {
 async function loadWorkItemsForView(org, projectId) {
   const settings = await getADOSettings();
   if (!settings.pat) return;
-
   showLoading("viewWorkItemLoading", true);
   try {
     const workItemsQuery = "SELECT [System.Id], [System.WorkItemType] FROM WorkItems WHERE [System.AssignedTo] = @Me ORDER BY [System.ChangedDate] DESC";
     const backlogQuery = `SELECT [System.Id], [System.WorkItemType] FROM WorkItems WHERE [System.WorkItemType] IN ('Product Backlog Item','User Story','Feature') AND [System.State] <> 'Done' AND [System.AssignedTo] = @Me ORDER BY [System.ChangedDate] DESC`;
-
     const [workItemsData, backlogData] = await Promise.all([
       fetchWorkItems(settings.pat, org, projectId, workItemsQuery),
       fetchWorkItems(settings.pat, org, projectId, backlogQuery),
     ]);
-
     populateWorkItemsForView(workItemsData.value);
     populateBacklogItemsForView(backlogData.value);
   } catch (error) {
@@ -432,7 +538,6 @@ async function loadWorkItemsForView(org, projectId) {
   }
 }
 
-// UI Population functions
 function populateProjectsForAddTask(projects) {
   const projectSelector = document.getElementById("projectSelector");
   projectSelector.innerHTML = '<option value="">Select project...</option>';
@@ -499,7 +604,6 @@ function populateBacklogItemsForView(backlogItems) {
   });
 }
 
-// Helper functions for showing/hiding selectors
 function showProjectSelector(show) {
     document.getElementById("projectSelectorGroup").style.display = show ? "block" : "none";
 }
@@ -516,19 +620,14 @@ function showViewWorkItemSelector(show) {
     document.getElementById("viewWorkItemSelectorGroup").style.display = show ? "block" : "none";
 }
 
-
 async function checkAndPreSelectWorkItem() {
   try {
     const response = await new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({ type: "GET_CURRENT_WORK_ITEM" }, (response) => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(response);
-        }
+        if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+        else resolve(response);
       });
     });
-
     if (response && response.id) {
       await preSelectWorkItem(response);
     }
@@ -544,17 +643,13 @@ async function preSelectWorkItem(workItem) {
       showMessage("PAT not configured - cannot auto-select work item", "error");
       return;
     }
-
     if (!workItem.organization || !workItem.project || !workItem.id) {
       showMessage("Incomplete work item data for auto-selection", "error");
       return;
     }
-
     const orgInput = document.getElementById("organizationInput");
     orgInput.value = workItem.organization;
-
     await loadProjectsForAddTask(workItem.organization);
-
     const projectSelector = document.getElementById("projectSelector");
     let projectId;
     for (const option of projectSelector.options) {
@@ -564,14 +659,11 @@ async function preSelectWorkItem(workItem) {
         break;
       }
     }
-
     if (!projectId) {
       showMessage(`Project "${workItem.project}" not found or not accessible`, "error");
       return;
     }
-
     await loadWorkItemsForAddTask(workItem.organization, projectId);
-
     const workItemSelector = document.getElementById("workItemSelector");
     for (const option of workItemSelector.options) {
       if (option.value === `wi:${workItem.id}` || option.value === `backlog:${workItem.id}`) {

@@ -39,15 +39,10 @@ h2 {
   justify-content: space-between;
 }
 
-.add-task-section {
+.add-task-section,
+.view-logs-section,
+.settings-section {
   margin-bottom: 24px;
-  padding: 16px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.view-logs-section {
   padding: 16px;
   background: white;
   border-radius: 8px;
@@ -66,17 +61,24 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+  font-family: inherit;
   transition: border-color 0.2s;
 }
 
+textarea {
+  resize: vertical;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: #3498db;
   box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
@@ -122,6 +124,9 @@ select:focus {
 }
 
 .task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   padding: 8px 0;
   border-bottom: 1px solid #e9ecef;
   color: #555;
@@ -130,6 +135,79 @@ select:focus {
 .task-item:last-child {
   border-bottom: none;
 }
+
+.task-content {
+    flex-grow: 1;
+}
+
+.task-main-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.task-details {
+  margin-right: 8px;
+}
+
+.task-time {
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.task-description {
+  font-size: 13px;
+  color: #777;
+  padding-left: 2px;
+}
+
+.task-actions {
+    display: flex;
+    align-items: center;
+}
+
+.task-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  margin-left: 8px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.task-actions button:hover {
+  background-color: #e9ecef;
+}
+
+.edit-mode .task-details {
+    margin-bottom: 8px;
+}
+
+.edit-mode .edit-inputs, .edit-mode .edit-description {
+    display: flex;
+    flex-direction: column;
+}
+
+.edit-inputs span {
+    display: flex;
+    align-items: center;
+}
+
+.edit-inputs input {
+  width: 45px;
+  padding: 4px;
+  text-align: center;
+  margin: 0 2px;
+}
+
+.edit-description textarea {
+    margin-top: 8px;
+    font-size: 13px;
+}
+
 
 .no-tasks {
   color: #999;
@@ -146,30 +224,23 @@ select:focus {
   color: #2c3e50;
 }
 
-.success-message {
-  background-color: #d4edda;
-  color: #155724;
+.success-message, .error-message {
   padding: 8px 12px;
   border-radius: 4px;
   margin-bottom: 12px;
-  border: 1px solid #c3e6cb;
+  border: 1px solid;
+}
+
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+  border-color: #c3e6cb;
 }
 
 .error-message {
   background-color: #f8d7da;
   color: #721c24;
-  padding: 8px 12px;
-  border-radius: 4px;
-  margin-bottom: 12px;
-  border: 1px solid #f5c6cb;
-}
-
-.settings-section {
-  margin-bottom: 24px;
-  padding: 16px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-color: #f5c6cb;
 }
 
 .settings-section details {
@@ -234,9 +305,7 @@ select:focus {
   margin-top: 16px;
 }
 
-.save-btn,
-.replace-btn,
-.clear-btn {
+.save-btn, .replace-btn, .clear-btn {
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
@@ -250,46 +319,25 @@ select:focus {
   background-color: #27ae60;
   color: white;
 }
-
-.save-btn:hover {
-  background-color: #229954;
-}
+.save-btn:hover { background-color: #229954; }
 
 .replace-btn {
   background-color: #f39c12;
   color: white;
 }
-
-.replace-btn:hover {
-  background-color: #e67e22;
-}
+.replace-btn:hover { background-color: #e67e22; }
 
 .clear-btn {
   background-color: #e74c3c;
   color: white;
 }
-
-.clear-btn:hover {
-  background-color: #c0392b;
-}
+.clear-btn:hover { background-color: #c0392b; }
 
 .pat-status {
   margin-top: 12px;
   padding: 8px 12px;
   border-radius: 4px;
   font-size: 13px;
-}
-
-.pat-status.valid {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.pat-status.expired {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
 }
 
 .loading-indicator {
@@ -299,7 +347,6 @@ select:focus {
   margin-top: 4px;
 }
 
-/* Added styles for the retry button */
 .retry-btn {
   background: none;
   border: none;
@@ -315,7 +362,6 @@ select:focus {
 .retry-btn:hover {
   background-color: #f0f0f0;
 }
-
 .retry-btn:active {
   transform: scale(0.95);
 }
