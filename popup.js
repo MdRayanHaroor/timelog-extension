@@ -220,7 +220,12 @@ async function handleSaveEdit(saveButton) {
         taskToUpdate.minutes = newMinutes;
         taskToUpdate.description = newDescription;
 
-        await saveTasksForDate(date, tasks);
+        // Ensure the task includes the Log_Id
+        if (!taskToUpdate.logId) {
+            throw new Error("Log_Id not found for the task to update");
+        }
+
+        await saveTasksForDate(date, [taskToUpdate]); // Send only the updated task
         await loadTasksForDate(date);
         showMessage("Time log updated.", "success");
     } catch (error) {

@@ -18,7 +18,11 @@ async function getTasksForDate(date) {
     const developer = await getDeveloperName();
     if (!developer) throw new Error("Developer name not resolved");
 
-    const response = await fetch(`http://localhost:7071/api/getLogs?date=${date}&developer=${developer}`);
+    //`https://chrome-ext-timelogger-dbc8ctcbe8f7gpc4.centralindia-01.azurewebsites.net/api/getLogs?date=${date}&developer=${developer}`
+
+    //const response = await fetch(`http://localhost:3000/api/getLogs?date=${date}&developer=${developer}`);
+    //const response = await fetch(`http://localhost:7071/api/getLogs?date=${date}&developer=${developer}`);
+    const response = await fetch(`https://chrome-ext-timelogger-dbc8ctcbe8f7gpc4.centralindia-01.azurewebsites.net/api/getLogs?date=${date}&developer=${developer}`);
     if (!response.ok) throw new Error(`Failed to fetch logs: ${response.status}`);
 
     const logs = await response.json();
@@ -41,7 +45,8 @@ async function getTasksForDate(date) {
       },
       hours: log.HoursSpent,
       minutes: log.MinutesSpent,
-      timestamp: log.LogDate
+      timestamp: log.LogDate,
+      logId: log.Log_Id
     }));
   } catch (err) {
     console.error("Error fetching tasks:", err);
@@ -75,6 +80,7 @@ async function saveTasksForDate(date, tasks) {
     );
 
     const payload = {
+      Log_Id: latestTask.logId || null,
       ProjectName: latestTask.workItem?.project || "",
       WorkItem: latestTask.workItem?.id || latestTask.task,
       WorkItemTitle: workItemDetails.title || latestTask.workItem?.title || latestTask.task,
@@ -105,7 +111,18 @@ async function saveTasksForDate(date, tasks) {
     console.log("[saveTasksForDate] Payload:", payload);
 
     console.log("[saveTasksForDate] Payload sending to addLog:", payload);
-    const response = await fetch("http://localhost:7071/api/addLog", {
+
+    const endpoint = payload.Log_Id 
+      ? "https://chrome-ext-timelogger-dbc8ctcbe8f7gpc4.centralindia-01.azurewebsites.net/api/updateLog"
+      : "https://chrome-ext-timelogger-dbc8ctcbe8f7gpc4.centralindia-01.azurewebsites.net/api/addLog";
+
+    //https://chrome-ext-timelogger-dbc8ctcbe8f7gpc4.centralindia-01.azurewebsites.net/api/addLog?
+
+    //http://localhost:7071/api/addLog
+    //const response = await fetch("http://localhost:3000/api/addLog", {
+    //const response = await fetch("http://localhost:7071/api/addLog", {
+    //const response = await fetch("https://chrome-ext-timelogger-dbc8ctcbe8f7gpc4.centralindia-01.azurewebsites.net/api/addLog", {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
