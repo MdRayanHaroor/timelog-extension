@@ -13,35 +13,35 @@ async function clearADOSettings() {
   await chrome.storage.local.remove(["adoSettings"]);
 }
 
-// async function getTasksForDate(date) {
-//   const result = await chrome.storage.local.get([date]);
-//   return result[date] || [];
-// }
-
 async function getTasksForDate(date) {
   try {
-    //const developer = "Rayan"; // or get dynamically from settings
-    const developer = await getDeveloperName(); 
+    const developer = await getDeveloperName();
     if (!developer) throw new Error("Developer name not resolved");
+
     const response = await fetch(`http://localhost:7071/api/getLogs?date=${date}&developer=${developer}`);
     if (!response.ok) throw new Error(`Failed to fetch logs: ${response.status}`);
-    const logs = await response.json();
 
-    // Map API logs into extension format
+    const logs = await response.json();
     return logs.map(log => ({
       task: log.WorkItem || log.ProjectName,
       description: log.Description,
       workItem: {
         id: log.WorkItem,
-        title: log.WorkItem,
+        title: log.WorkItemTitle || log.WorkItem,
         type: log.WorkItemType,
         organization: log.Organization || "",
         project: log.ProjectName,
         projectId: log.ProjectId || "",
+        state: log.WorkItemState || "",
+        assignedTo: log.AssignedTo || "",
+        iterationPath: log.IterationPath || "",
+        tags: log.Tags || "",
+        url: log.WorkItemURL || "",
+        workItemDescription: log.WorkItemDescription || "",
       },
       hours: log.HoursSpent,
       minutes: log.MinutesSpent,
-      timestamp: log.LogDate // DB date
+      timestamp: log.LogDate
     }));
   } catch (err) {
     console.error("Error fetching tasks:", err);
@@ -49,77 +49,94 @@ async function getTasksForDate(date) {
   }
 }
 
-// async function saveTasksForDate(date, tasks) {
-//   await chrome.storage.local.set({ [date]: tasks });
-// }
-
 async function saveTasksForDate(date, tasks) {
   try {
     console.log("[saveTasksForDate] Received tasks:", tasks);
-
     const latestTask = tasks[tasks.length - 1];
     console.log("[saveTasksForDate] Latest task:", latestTask);
 
     const developer = await getDeveloperName();
     console.log("[saveTasksForDate] Resolved developer:", developer);
-
     if (!developer) throw new Error("Developer name not resolved");
+
+    // Extra details for work item
+    const workItemDetails = await getWorkItemDetails(
+      latestTask.workItem?.id,
+      latestTask.workItem?.organization,
+      latestTask.workItem?.project
+    );
+    console.log('Fetched workItemDetails:', workItemDetails);
+
+    // hierarchy info
+    const hierarchy = await getWorkItemHierarchy(
+      latestTask.workItem?.id,
+      latestTask.workItem?.organization,
+      latestTask.workItem?.project
+    );
 
     const payload = {
       ProjectName: latestTask.workItem?.project || "",
       WorkItem: latestTask.workItem?.id || latestTask.task,
-      WorkItemType: latestTask.workItem?.type || "",
+      WorkItemTitle: workItemDetails.title || latestTask.workItem?.title || latestTask.task,
+      WorkItemType: workItemDetails.type || latestTask.workItem?.type || "",
       LogDate: date,
       DeveloperName: developer,
       HoursSpent: latestTask.hours,
       MinutesSpent: latestTask.minutes,
       WorkItemURL: latestTask.workItem?.url ||
         `https://dev.azure.com/${latestTask.workItem?.organization}/${latestTask.workItem?.project}/_workitems/edit/${latestTask.workItem?.id}`,
-      Description: latestTask.description
+      Description: latestTask.description,
+      UserStoryId: hierarchy.userStory?.id || null,
+      UserStoryTitle: hierarchy.userStory?.title || null,
+      UserStoryDescription: hierarchy.userStory?.description || null,
+      FeatureId: hierarchy.feature?.id || null,
+      FeatureTitle: hierarchy.feature?.title || null,
+      EpicId: hierarchy.epic?.id || null,
+      EpicTitle: hierarchy.epic?.title || null,
+      WorkItemState: workItemDetails.state || null,
+      AssignedTo: workItemDetails.assignedTo || null,
+      IterationPath: workItemDetails.iterationPath || null,
+      Tags: workItemDetails.tags || null,
+      WorkItemDescription: workItemDetails.workItemDescription || null
     };
 
-    console.log("[saveTasksForDate] Payload sending to addLog:", payload);
+    console.log("[saveTasksForDate] Hierarchy info:", hierarchy);
+    console.log("[saveTasksForDate] Work item details:", workItemDetails);
+    console.log("[saveTasksForDate] Payload:", payload);
 
+    console.log("[saveTasksForDate] Payload sending to addLog:", payload);
     const response = await fetch("http://localhost:7071/api/addLog", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-
     console.log("[saveTasksForDate] Response status:", response.status);
     const text = await response.text();
     console.log("[saveTasksForDate] Response body:", text);
-
-    if (!response.ok) {
-      throw new Error(`Failed to save task: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Failed to save task: ${response.status}`);
   } catch (err) {
     console.error("[saveTasksForDate] Error saving task:", err);
     throw err;
   }
 }
 
-
-
 async function handleDeleteTask(timestamp) {
   alert("Delete not yet implemented — need backend /deleteLog API");
 }
 
-// Fetch current Azure DevOps profile
 async function getADOProfile() {
   try {
-    const res = await fetch("https://app.vssps.visualstudio.com/_apis/profile/profiles/me", {
-      method: "GET",
-      credentials: "include", // use logged-in cookies
-      headers: { "Accept": "application/json" }
-    });
-
+    const res = await fetch(
+      "https://app.vssps.visualstudio.com/_apis/profile/profiles/me",
+      {
+        method: "GET",
+        credentials: "include",
+        headers: { "Accept": "application/json" }
+      }
+    );
     if (!res.ok) throw new Error(`Failed to fetch ADO profile: ${res.status}`);
     const profile = await res.json();
-
-    // Save locally for reuse
     await chrome.storage.local.set({ adoProfile: profile });
-
     return profile;
   } catch (err) {
     console.error("Error fetching ADO profile:", err);
@@ -127,32 +144,23 @@ async function getADOProfile() {
   }
 }
 
-// Load cached displayName (or fetch fresh if missing)
 async function getDeveloperName() {
   try {
-    // First try cache
     const cached = await chrome.storage.local.get(["adoProfile"]);
     if (cached?.adoProfile?.displayName) {
       return cached.adoProfile.displayName;
     }
-
-    // Otherwise fetch live profile with cookies
-    console.log("[getDeveloperName] fetching profile...");
     const res = await fetch(
       "https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=7.1-preview.3",
       {
         method: "GET",
-        credentials: "include", // use logged-in cookies
+        credentials: "include",
         headers: { "Accept": "application/json" }
       }
     );
-    console.log("[getDeveloperName] status:", res.status);
     if (!res.ok) throw new Error(`Failed to fetch ADO profile: ${res.status}`);
     const profile = await res.json();
-
-    // cache it
     await chrome.storage.local.set({ adoProfile: profile });
-
     return profile.displayName;
   } catch (err) {
     console.error("Error in getDeveloperName:", err);
@@ -160,4 +168,69 @@ async function getDeveloperName() {
   }
 }
 
+async function getWorkItemHierarchy(workItemId, organization, project) {
+  try {
+    let userStory = null, feature = null, epic = null;
+    let currentId = workItemId;
+    while (currentId) {
+      const res = await fetch(
+        `https://dev.azure.com/${organization}/${project}/_apis/wit/workitems/${currentId}?$expand=relations&api-version=7.0`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: { "Accept": "application/json" }
+        }
+      );
+      if (!res.ok) throw new Error(`Failed to fetch work item ${currentId}`);
+      const current = await res.json();
+      const type = current.fields["System.WorkItemType"];
+      const title = current.fields["System.Title"];
+      const description = stripHtml(current.fields["System.Description"]);
+      if (type === "User Story" && !userStory) userStory = { id: current.id, title, description };
+      else if (type === "Feature" && !feature) feature = { id: current.id, title };
+      else if (type === "Epic" && !epic) epic = { id: current.id, title };
+      currentId = current.fields["System.Parent"] || null;
+    }
+    return { userStory, feature, epic };
+  } catch (err) {
+    console.error("[getWorkItemHierarchy] Error:", err);
+    return { userStory: null, feature: null, epic: null };
+  }
+}
 
+// Fetch all extra work item fields
+async function getWorkItemDetails(workItemId, organization, project) {
+  try {
+    if (!workItemId || !organization || !project) return {};
+    const res = await fetch(
+      `https://dev.azure.com/${organization}/${project}/_apis/wit/workitems/${workItemId}?api-version=7.0`,
+      {
+        method: "GET",
+        credentials: "include",
+        headers: { "Accept": "application/json" }
+      }
+    );
+    if (!res.ok) throw new Error("Failed to fetch work item details");
+    const workItem = await res.json();
+    return {
+      title: workItem.fields?.["System.Title"] ?? null,
+      type: workItem.fields?.["System.WorkItemType"] ?? null,
+      state: workItem.fields?.["System.State"] ?? null,
+      assignedTo: workItem.fields?.["System.AssignedTo"]?.displayName ?? null,
+      iterationPath: workItem.fields?.["System.IterationPath"] ?? null,
+      tags: workItem.fields?.["System.Tags"] ?? null,
+      //workItemDescription: workItem.fields?.["System.Description"] ?? null
+      workItemDescription: stripHtml(workItem.fields?.["System.Description"])
+    };    
+  } catch (err) {
+    console.error("[getWorkItemDetails] Error:", err);
+    return {};
+  }
+}
+
+function stripHtml(html) {
+  if (!html) return "";
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+}

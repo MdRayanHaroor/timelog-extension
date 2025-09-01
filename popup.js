@@ -340,14 +340,21 @@ async function handleCancelEdit() {
 
 async function initializeAzureDevOpsSettings() {
   const settings = await getADOSettings();
+
+  if (settings.organization) {
+    document.getElementById("organization").value = settings.organization;
+    document.getElementById("organizationInput").value = settings.organization;
+  }
+
   if (settings.pat && settings.expiresAt) {
     const expiryDate = new Date(settings.expiresAt);
     document.getElementById("expiryDate").value = expiryDate.toISOString().split("T")[0];
+    document.getElementById("pat").value = settings.pat;
+
     if (expiryDate > new Date()) {
       showPATStatus(true, expiryDate);
       updateSettingsSummary(expiryDate);
       disablePATInputs();
-      document.getElementById("pat").value = settings.pat;
       loadOrganizations();
       await autoPopulateOrganization();
     } else {
@@ -355,11 +362,13 @@ async function initializeAzureDevOpsSettings() {
       updateSettingsSummary(expiryDate);
     }
   }
+
   document.getElementById("togglePat").addEventListener("click", togglePATVisibility);
   document.getElementById("savePat").addEventListener("click", savePATSettings);
   document.getElementById("replacePat").addEventListener("click", enablePATInputs);
   document.getElementById("clearPat").addEventListener("click", clearPATSettings);
 }
+
 
 function showPATStatus(isValid, expiryDate) {
   const patStatus = document.getElementById("patStatus");
