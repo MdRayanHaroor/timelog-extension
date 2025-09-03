@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Developer Time Logger",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Log and track time spent on development tasks",
   "permissions": ["storage", "activeTab", "tabs"],
-  "host_permissions": ["https://dev.azure.com/*"],
+  "host_permissions": [
+    "https://dev.azure.com/*",
+    "https://app.vssps.visualstudio.com/*",
+    "https://*.visualstudio.com/*",
+    "https://*.dev.azure.com/*",
+    "https://chrome-ext-timelogger-dbc8ctcbe8f7gpc4.centralindia-01.azurewebsites.net/*"
+  ],
   "content_scripts": [
     {
       "matches": ["https://dev.azure.com/*"],
@@ -21,12 +27,12 @@
     "default_icon": {
       "16": "images/icon16.png",
       "48": "images/icon48.png",
-      "128": "images/icon128.png"
+      "128": "images/image128.png"
     }
   },
   "icons": {
     "16": "images/icon16.png",
     "48": "images/icon48.png",
-    "128": "images/icon128.png"
+    "128": "images/image128.png"
   }
 }
