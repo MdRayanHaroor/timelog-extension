@@ -70,3 +70,4 @@ function togglePATVisibility() {
 function showLoading(elementId, show) {
   document.getElementById(elementId).style.display = show ? "block" : "none";
 }
+

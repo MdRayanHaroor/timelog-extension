@@ -16,6 +16,7 @@
           title: workItemTitle,
           organization: decodeURIComponent(org),
           project: decodeURIComponent(project),
+          url: `https://dev.azure.com/${org}/${project}/_workitems/edit/${workItemId}`
         };
 
         chrome.runtime.sendMessage({
